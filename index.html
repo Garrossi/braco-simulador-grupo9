@@ -1,0 +1,752 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Braço hidráulico A-81 · simulador interativo</title>
+<meta name="description" content="Simulador 3D do braço hidráulico A-81 do Grupo 9 com a garra Dedos em concha DC1: mova as articulações, veja as seringas e leve a garrafinha da posição A até a B. Projeto e Desenvolvimento de Produtos, DEP/UFTM.">
+<meta name="theme-color" content="#111111">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%A6%BE%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #efece6;
+  --fg: #161412;
+  --dim: rgba(22, 20, 18, 0.7);
+  --mute: rgba(22, 20, 18, 0.48);
+  --line: rgba(22, 20, 18, 0.14);
+  --panel: rgba(255, 255, 255, 0.72);
+  --accent: #f26522;      /* laranja PROJEP */
+  --accent-esc: #c94d12;
+  --preto: #111111;
+  --agua: #2f7fe0;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); overflow: hidden; }
+#app { position: fixed; inset: 0; font-family: 'Inter', system-ui, sans-serif; font-size: 13px; line-height: 1.4; color: var(--fg); -webkit-font-smoothing: antialiased; }
+.mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+.tela {
+  position: absolute; inset: 0; display: grid;
+  grid-template-columns: minmax(250px, 290px) 1fr minmax(260px, 310px);
+  grid-template-rows: auto 1fr auto;
+  grid-template-areas: 'cab cab cab' 'esq palco dir' 'barra barra barra';
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+}
+.tela.sem-paineis { grid-template-columns: 0 1fr 0; }
+.tela.sem-paineis .lado-esq, .tela.sem-paineis .lado-dir { display: none; }
+
+/* cabeçalho preto PROJEP */
+.cab { grid-area: cab; display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; padding: 14px 20px 12px; background: var(--preto); color: #fff; border-bottom: 3px solid var(--accent); }
+.titulo h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.01em; display: flex; align-items: center; gap: 10px; }
+.titulo h1::before { content: ''; display: inline-block; width: 6px; height: 24px; background: var(--accent); border-radius: 1px; }
+.titulo p { margin: 3px 0 0; color: rgba(255,255,255,0.62); font-size: 12px; }
+.titulo p b { color: var(--accent); font-weight: 600; }
+.principal { display: grid; justify-items: end; text-align: right; }
+.principal .rot { color: rgba(255,255,255,0.7); font-size: 12px; }
+.principal .num { font-family: 'JetBrains Mono', monospace; line-height: 1; }
+.principal .num b { font-size: 40px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+.principal .num i { font-style: normal; font-size: 16px; margin-left: 4px; color: rgba(255,255,255,0.7); }
+.principal .sub { color: rgba(255,255,255,0.55); font-size: 11.5px; font-family: 'JetBrains Mono', monospace; }
+.link-ra { display: inline-block; margin-top: 8px; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--accent); background: var(--accent); color: #fff; font-weight: 700; font-size: 12px; text-decoration: none; }
+.link-ra:hover { background: transparent; color: var(--accent); }
+.link-ra:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--agua); outline-offset: 2px; }
+
+.lado-esq { grid-area: esq; }
+.lado-dir { grid-area: dir; }
+.lado-esq, .lado-dir { display: flex; flex-direction: column; gap: 10px; padding: 10px 12px; overflow-y: auto; min-height: 0; }
+.cartao { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.cartao h2 { margin: 0 0 8px; font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.cartao h2 small { font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--mute); }
+.cartao.grupo { background: var(--preto); color: #fff; border-color: var(--preto); }
+.cartao.grupo h2 { color: var(--accent); }
+.cartao.grupo .nome-garra { font-size: 16px; font-weight: 800; margin: 0 0 4px; }
+.cartao.grupo p { margin: 0 0 6px; color: rgba(255,255,255,0.78); font-size: 12px; }
+.cartao.grupo .integrantes { color: rgba(255,255,255,0.55); font-size: 11.5px; margin: 0; }
+.nota { margin: 8px 0 0; color: var(--mute); font-size: 11px; }
+
+.hid-linha { display: grid; grid-template-columns: 74px 1fr 14px 1fr; grid-template-rows: auto auto; column-gap: 6px; align-items: center; padding: 4px 0; border-top: 1px solid var(--line); }
+.hid-linha:first-child { border-top: 0; }
+.hid-linha .nome { font-weight: 600; font-size: 12px; }
+.hid-linha .ser { height: 9px; border: 1px solid rgba(47, 127, 224, 0.45); border-radius: 5px; background: rgba(255, 255, 255, 0.7); overflow: hidden; }
+.hid-linha .agua { display: block; height: 100%; background: var(--agua); opacity: 0.75; }
+.hid-linha .seta { text-align: center; color: var(--mute); font-family: 'JetBrains Mono', monospace; }
+.hid-linha .ml { grid-column: 2 / 5; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--dim); text-align: center; }
+.hid-linha.ativa .nome, .junta.ativa .nome { color: var(--accent); }
+
+table.tab { width: 100%; border-collapse: collapse; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; }
+table.tab th { text-align: right; font-weight: 600; color: var(--mute); padding: 2px 4px; font-family: 'Inter', sans-serif; font-size: 11px; }
+table.tab td { text-align: right; padding: 2px 4px; border-top: 1px solid var(--line); }
+table.tab tr.ativa td { background: rgba(242, 101, 34, 0.14); color: var(--accent-esc); font-weight: 700; }
+
+.junta { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; padding: 6px 0 4px; border-top: 1px solid var(--line); }
+.junta:first-of-type { border-top: 0; }
+.junta .nome { font-weight: 600; font-size: 12px; }
+.junta .val { font-family: 'JetBrains Mono', monospace; font-weight: 700; }
+.junta input[type=range] { grid-column: 1 / 3; width: 100%; accent-color: var(--accent); margin: 4px 0 0; height: 22px; cursor: pointer; }
+.junta .faixa { grid-column: 1 / 3; display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--mute); }
+
+.topo-garra { display: block; width: 100%; height: 210px; }
+
+.palco-area { grid-area: palco; position: relative; min-width: 0; min-height: 0; overflow: hidden; }
+#palco { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+.linhas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.linhas line { stroke: rgba(22, 20, 18, 0.55); stroke-width: 1; }
+.linhas circle { fill: var(--fg); }
+.rotulos { position: absolute; inset: 0; pointer-events: none; }
+.rotulo { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 2px 6px; border-radius: 4px; background: rgba(255, 255, 255, 0.88); border: 1px solid var(--line); }
+.rotulo.dc1 { background: var(--preto); color: #fff; border-color: var(--preto); }
+.rotulo.dc1::before { content: '● '; color: var(--accent); }
+.sem-legendas .linhas, .sem-legendas .rotulos { display: none; }
+
+.barra { grid-area: barra; display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; justify-content: center; padding: 8px 12px 12px; }
+.grupo-bt { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.grupo-bt .leg { font-size: 10.5px; color: var(--mute); text-transform: uppercase; letter-spacing: 0.06em; margin-right: 2px; }
+.barra button {
+  font: inherit; font-size: 12.5px; font-weight: 600; min-height: 34px; padding: 6px 12px; cursor: pointer;
+  border-radius: 999px; border: 1px solid var(--preto); background: #fff; color: var(--preto);
+}
+.barra button:hover { border-color: var(--accent); color: var(--accent-esc); }
+.barra button[aria-pressed='true'] { background: var(--preto); border-color: var(--preto); color: #fff; }
+.barra button.acao { background: var(--accent); border-color: var(--accent); color: #fff; }
+.barra button.acao[aria-pressed='true'] { background: var(--preto); border-color: var(--accent); color: var(--accent); }
+
+.dica, .status { position: absolute; left: 12px; max-width: min(460px, calc(100% - 24px)); padding: 6px 10px; border-radius: 8px; background: rgba(255, 255, 255, 0.9); border: 1px solid var(--line); font-size: 12px; pointer-events: none; }
+.dica { top: 10px; }
+.dica b { color: var(--accent-esc); }
+.status { bottom: 10px; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; }
+.status.ok { border-color: #2f9e5a; color: #1d6b3c; }
+.status.presa { border-color: var(--accent); color: var(--accent-esc); }
+.carregando { position: absolute; inset: 0; display: grid; place-items: center; color: var(--dim); font-size: 14px; pointer-events: none; text-align: center; padding: 20px; }
+
+.tela.limpo { grid-template-columns: 0 1fr 0; grid-template-rows: 0 1fr 0; }
+.tela.limpo .cab, .tela.limpo .barra, .tela.limpo .lado-esq, .tela.limpo .lado-dir, .tela.limpo .dica, .tela.limpo .status { display: none; }
+
+@media (max-width: 860px) {
+  html, body { overflow: auto; }
+  #app { position: static; }
+  .tela { position: static; display: flex; flex-direction: column; }
+  .cab { flex-wrap: wrap; align-items: flex-start; }
+  .titulo h1 { font-size: 18px; }
+  .principal { justify-items: start; text-align: left; }
+  .principal .num b { font-size: 32px; }
+  .palco-area { height: 56vh; flex: none; }
+  .barra { order: 3; }
+  .lado-dir { order: 4; overflow: visible; }
+  .lado-esq { order: 5; overflow: visible; }
+  .dica { font-size: 11px; }
+  .tela.sem-paineis .lado-esq, .tela.sem-paineis .lado-dir { display: none; }
+}
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="app">
+  <div class="tela" id="tela">
+    <header class="cab">
+      <div class="titulo">
+        <h1>Braço hidráulico A-81 · simulador interativo</h1>
+        <p id="subtitulo"><b>Grupo 9</b> · Dedos em concha DC1 · Projeto e Desenvolvimento de Produtos · DEP/UFTM</p>
+        <a class="link-ra" href="ar.html">Ver em realidade aumentada ↗</a>
+      </div>
+      <div class="principal" aria-live="polite">
+        <span class="rot">Abertura da boca · dedos DC1</span>
+        <span class="num"><b id="pr-num">0</b><i>mm</i></span>
+        <span class="sub" id="pr-sub"></span>
+      </div>
+    </header>
+
+    <aside class="lado-esq">
+      <section class="cartao grupo">
+        <h2 id="g-titulo">Grupo 9 <small style="color:rgba(255,255,255,.55)">nossa garra</small></h2>
+        <p class="nome-garra" id="g-garra">Dedos em concha DC1</p>
+        <p id="g-desc"></p>
+        <p class="integrantes" id="g-int"></p>
+      </section>
+      <section class="cartao">
+        <h2>Hidráulica <small>mestra → escrava</small></h2>
+        <div id="hid"></div>
+        <p class="nota">Seringas iguais nos dois lados: o volume que sai da mestra entra na escrava (Pascal, 1:1).</p>
+      </section>
+      <section class="cartao">
+        <h2>Abertura × φ <small>verificacao.json</small></h2>
+        <table class="tab" id="tab-ab"><thead><tr><th>φ (cada dedo)</th><th>Abertura DC1</th></tr></thead><tbody></tbody></table>
+        <p class="nota">φ = 0° é a garra fechada (2 mm entre as pontas). Um objeto Ø40 entra a partir de φ ≈ 16,5°. Pivôs a 54,6 mm; P–D = 18 mm.</p>
+      </section>
+    </aside>
+
+    <main class="palco-area" id="palco-area">
+      <canvas id="palco" aria-label="Modelo 3D do braço hidráulico"></canvas>
+      <svg class="linhas" id="linhas"></svg>
+      <div class="rotulos" id="rotulos"></div>
+      <div class="dica" id="dica"></div>
+      <div class="status" id="status"></div>
+      <div class="carregando" id="carregando">Carregando o modelo…</div>
+    </main>
+
+    <aside class="lado-dir">
+      <section class="cartao">
+        <h2>Articulações <small>arraste</small></h2>
+        <div id="juntas"></div>
+      </section>
+      <section class="cartao">
+        <h2>Garra DC1 · vista de topo <small id="topo-phi"></small></h2>
+        <canvas class="topo-garra" id="topo-garra"></canvas>
+        <p class="nota">Mesma vista da montagem: cabeça original (cinza) e os 2 dedos DC1 girando nos pivôs P.</p>
+      </section>
+    </aside>
+
+    <nav class="barra" aria-label="Controles">
+      <div class="grupo-bt" id="bt-subs" role="group" aria-label="Subsistemas"></div>
+      <div class="grupo-bt" id="bt-vistas" role="group" aria-label="Câmeras"></div>
+      <div class="grupo-bt" role="group" aria-label="Interação">
+        <button type="button" id="bt-tour" aria-pressed="false">Tour automático</button>
+        <button type="button" id="bt-levar" class="acao" aria-pressed="false">Pegar e levar a peça</button>
+        <button type="button" id="bt-reiniciar" aria-pressed="false">Reiniciar peça</button>
+      </div>
+      <div class="grupo-bt" id="bt-objetos" role="group" aria-label="Objeto"><span class="leg">Objeto</span></div>
+      <div class="grupo-bt" role="group" aria-label="Exibição">
+        <button type="button" id="bt-legendas" aria-pressed="true">Legendas</button>
+        <button type="button" id="bt-paineis" aria-pressed="true" title="Tecla H">Painéis</button>
+      </div>
+    </nav>
+  </div>
+</div>
+
+<script>
+// Diagnóstico: se o simulador não iniciar, mostra o motivo no lugar de "Carregando o modelo…"
+(function () {
+  function avisar(msg) {
+    var el = document.getElementById('carregando');
+    if (el) { el.innerHTML = '<div style="max-width:560px;line-height:1.6">' + msg + '</div>'; el.style.color = '#c94d12'; el.style.fontWeight = '600'; el.style.pointerEvents = 'auto'; }
+  }
+  if (location.protocol === 'file:') {
+    avisar('O arquivo foi aberto direto do computador (file://), e assim o navegador bloqueia o modelo 3D.<br>' +
+      'No VS Code: clique com o botão direito no <b>index.html</b> &gt; <b>Open with Live Server</b>.<br>' +
+      'O endereço deve começar com http://127.0.0.1:5500/');
+    return;
+  }
+  window.addEventListener('error', function (e) {
+    if (!window.__iniciou) avisar('Erro ao iniciar o simulador: ' + (e.message || (e.target && (e.target.src || e.target.href)) || 'desconhecido') +
+      '<br>Confira a conexão com a internet (as bibliotecas vêm do cdn.jsdelivr.net) e recarregue com Ctrl+F5.');
+  }, true);
+  window.addEventListener('unhandledrejection', function (e) {
+    if (!window.__iniciou) avisar('Erro ao iniciar o simulador: ' + (e.reason && e.reason.message ? e.reason.message : e.reason));
+  });
+  setTimeout(function () {
+    if (!window.__iniciou) avisar('O simulador não iniciou em 15 s.<br>Confira a internet (bibliotecas do cdn.jsdelivr.net), ' +
+      'abra pelo Live Server ou pelo link do GitHub Pages e recarregue com Ctrl+F5.<br>Se continuar, aperte F12 &gt; Console e me mande a mensagem em vermelho.');
+  }, 15000);
+})();
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import {
+  criarBraco, criarGarrafa, criarEngrenagem, poseObjetoNaPega, aberturaBoca,
+  GEOM, JUNTAS, NOMES, LIMITES, PHI_MAX, PHI_CONTATO, POSE_PEGA, GIRO_A, GIRO_B, TABELA_ABERTURA, AREA_SERINGA, SER,
+} from './braco.js';
+
+const $ = id => document.getElementById(id);
+const fmt = (v, d = 0) => Number(v).toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
+const params = new URLSearchParams(location.search);
+const tela = $('tela'), palcoArea = $('palco-area'), canvas = $('palco');
+if (params.has('limpo')) tela.classList.add('limpo');
+const celular = matchMedia('(max-width: 860px)').matches;
+
+// ---------- dados ----------
+let grupo, dedo;
+try {
+  [grupo, dedo] = await Promise.all(['grupo.json', 'dedo_dc1.json'].map(f => fetch(f).then(r => { if (!r.ok) throw new Error(f); return r.json(); })));
+} catch (e) {
+  $('carregando').textContent = 'Não foi possível ler grupo.json / dedo_dc1.json. Abra o site por um servidor (Live Server ou GitHub Pages), não com duplo clique no arquivo.';
+  throw e;
+}
+$('g-titulo').firstChild.textContent = `Grupo ${grupo.grupo} `;
+$('g-garra').textContent = grupo.nome_garra;
+$('g-desc').textContent = grupo.descricao;
+$('g-int').textContent = grupo.integrantes;
+$('subtitulo').innerHTML = `<b>Grupo ${grupo.grupo}</b> · ${grupo.nome_garra} · Projeto e Desenvolvimento de Produtos · DEP/UFTM`;
+document.title = `Braço hidráulico A-81 · simulador interativo`;
+
+// ---------- cena ----------
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const cena = new THREE.Scene();
+cena.background = new THREE.Color('#efece6');
+const pmrem = new THREE.PMREMGenerator(renderer);
+cena.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+cena.environmentIntensity = 0.55;
+cena.add(new THREE.HemisphereLight('#ffffff', '#d9d1c5', 0.7));
+const sol = new THREE.DirectionalLight('#fffaf2', 2.3);
+sol.position.set(0.4, 1.3, 0.8);
+sol.castShadow = true;
+sol.shadow.mapSize.set(2048, 2048);
+Object.assign(sol.shadow.camera, { left: -0.45, right: 0.45, top: 0.45, bottom: -0.45, near: 0.1, far: 4 });
+sol.shadow.bias = -0.0004;
+cena.add(sol);
+const chao = new THREE.Mesh(new THREE.PlaneGeometry(8, 8), new THREE.ShadowMaterial({ opacity: 0.16 }));
+chao.rotation.x = -Math.PI / 2; chao.receiveShadow = true; cena.add(chao);
+
+const camera = new THREE.PerspectiveCamera(30, 1, 0.01, 30);
+const controles = new OrbitControls(camera, canvas);
+controles.enableDamping = true; controles.minDistance = 0.15; controles.maxDistance = 2.5; controles.maxPolarAngle = Math.PI * 0.49;
+
+// ---------- braço ----------
+const braco = criarBraco(dedo);
+const raiz = braco.raiz;
+cena.add(raiz);
+const objetos = { garrafa: criarGarrafa(braco.mats), engrenagem: criarEngrenagem(braco.mats) };
+const NOMES_OBJ = { garrafa: 'Garrafa', engrenagem: 'Engrenagem' };
+let tipoObj = params.get('objeto') === 'engrenagem' ? 'engrenagem' : 'garrafa';
+let obj = objetos[tipoObj];
+raiz.add(obj);
+
+const poseA = poseObjetoNaPega(braco, GIRO_A), poseB = poseObjetoNaPega(braco, GIRO_B);
+// marcas A e B na mesa
+function texturaMarca(letra) {
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const g = c.getContext('2d');
+  g.strokeStyle = 'rgba(22,20,18,0.75)'; g.lineWidth = 6; g.setLineDash([18, 12]);
+  g.beginPath(); g.arc(128, 128, 112, 0, Math.PI * 2); g.stroke(); g.setLineDash([]);
+  g.lineWidth = 3; g.beginPath(); g.moveTo(128, 100); g.lineTo(128, 156); g.moveTo(100, 128); g.lineTo(156, 128); g.stroke();
+  g.fillStyle = 'rgba(242,101,34,0.95)'; g.font = '800 64px Inter, sans-serif'; g.textAlign = 'center'; g.fillText(letra, 128, 72);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+for (const [letra, p] of [['A', poseA], ['B', poseB]]) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.MeshBasicMaterial({ map: texturaMarca(letra), transparent: true, depthWrite: false }));
+  m.position.set(p.posicao.x, p.posicao.y, 0.4); m.renderOrder = 1; raiz.add(m);
+}
+
+// materiais originais (para destacar subsistemas)
+const malhas = [];
+const fantasma = new THREE.MeshBasicMaterial({ color: '#b6ad9f', transparent: true, opacity: 0.1, depthWrite: false });
+function registrarMalhas(raizObj) {
+  raizObj.traverse(o => { if (o.isMesh && o.userData.grupo && !o.userData.registrada) { o.userData.registrada = true; o.userData.mat = o.material; malhas.push(o); } });
+}
+registrarMalhas(raiz);
+for (const o of Object.values(objetos)) registrarMalhas(o);
+
+// ---------- estado ----------
+const fc = PHI_CONTATO / PHI_MAX;
+const est = { giro: 10, ombro: 72, cotovelo: -100, garra: 0.35 };
+let tour = params.get('tour') !== '0' && !params.has('pose') && !params.has('demo');
+let seq = null, preso = false, queda = null, entregue = false, phiAnterior = 0, msgErro = '';
+const v1 = new THREE.Vector3();
+const relogio = { extra: 0, fixo: null };
+const agoraMs = () => (relogio.fixo === null ? performance.now() : relogio.fixo) + relogio.extra;
+
+function colocarObjeto(pose) {
+  raiz.attach(obj);
+  obj.position.copy(pose.posicao); obj.quaternion.copy(pose.quaternion);
+  preso = false; queda = null; entregue = false;
+}
+colocarObjeto(poseA);
+
+function trocarObjeto(tipo) {
+  if (tipo === tipoObj) return;
+  pararSeq();
+  const pai = obj.parent; const pos = obj.position.clone(), q = obj.quaternion.clone();
+  pai.remove(obj);
+  tipoObj = tipo; obj = objetos[tipo];
+  pai.add(obj); obj.position.copy(pos); obj.quaternion.copy(q);
+  if (!preso) colocarObjeto(distA() < distB() ? poseA : poseB);
+  marcarObjetos(); rotulos.at(-1).texto = obj.userData.rotulo; rotulos.at(-1).obj = obj; rotulos.at(-1).div.textContent = obj.userData.rotulo;
+}
+const posObj = () => raiz.worldToLocal(obj.getWorldPosition(new THREE.Vector3()));
+const distA = () => { const p = posObj(); return Math.hypot(p.x - poseA.posicao.x, p.y - poseA.posicao.y); };
+const distB = () => { const p = posObj(); return Math.hypot(p.x - poseB.posicao.x, p.y - poseB.posicao.y); };
+
+function verificarPega() {
+  const phi = braco.phi();
+  if (!preso && !queda) {
+    if (phi <= PHI_CONTATO + 0.4 && phi < phiAnterior - 1e-4) {
+      const p = braco.no.cabeca.worldToLocal(obj.getWorldPosition(v1));
+      if (Math.abs(p.x - GEOM.pegaX) < 14 && Math.abs(p.y) < 8 && Math.abs(p.z - GEOM.dedoZ) < 16) {
+        preso = true; entregue = false;
+        braco.no.cabeca.attach(obj);
+        if (est.garra < fc) { est.garra = fc; braco.definir(est); }
+      }
+    }
+  } else if (preso && phi > PHI_CONTATO + 2) soltar();
+  phiAnterior = braco.phi();
+}
+function soltar() {
+  preso = false;
+  raiz.attach(obj);
+  const p = obj.position;
+  const sobreBase = Math.abs(p.x) <= 120 && Math.abs(p.y) <= 65;
+  const eixo = new THREE.Vector3(0, 0, 1).applyQuaternion(obj.quaternion); eixo.z = 0;
+  if (eixo.lengthSq() < 1e-6) eixo.set(1, 0, 0);
+  eixo.normalize();
+  queda = { t0: agoraMs(), z0: p.z, z1: 20 + (sobreBase ? GEOM.base.t : 0), q0: obj.quaternion.clone(), q1: new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), eixo) };
+}
+function animarQueda(agora) {
+  if (!queda) return;
+  const t = Math.min(1, (agora - queda.t0) / 380);
+  obj.position.z = queda.z0 + (queda.z1 - queda.z0) * t * t;
+  obj.quaternion.slerpQuaternions(queda.q0, queda.q1, t);
+  if (t >= 1) { queda = null; entregue = distB() < 18; }
+}
+
+// ---------- pegar e levar ----------
+// pose de transporte (garra ~11 cm acima da mesa) e de aproximação (~3 cm acima e um pouco para fora:
+// a pega fica no limite do alcance do ombro, então a descida é na diagonal)
+const ALTO = { ombro: 80, cotovelo: -110 };
+const ACIMA = { ombro: 85, cotovelo: -133 };
+function iniciarLevar() {
+  pararTour();
+  if (preso) soltar();
+  msgErro = '';
+  const naB = distB() < 18;
+  if (!naB && distA() > 18) colocarObjeto(poseA);
+  const gO = naB ? GIRO_B : GIRO_A, gD = naB ? GIRO_A : GIRO_B;
+  seq = {
+    destino: naB ? 'A' : 'B', i: 0, t0: agoraMs(), de: { ...est },
+    etapas: [
+      { ang: { ...ALTO, garra: 0.35 }, dur: 900, txt: 'subindo' },
+      { ang: { giro: gO }, dur: 1100, txt: `girando até ${naB ? 'B' : 'A'}` },
+      { ang: { garra: 1 }, dur: 700, txt: 'abrindo a garra (φ = 55°)' },
+      { ang: { ...ACIMA }, dur: 1000, txt: 'posicionando sobre a peça' },
+      { ang: { ...POSE_PEGA }, dur: 1300, txt: 'descendo' },
+      { ang: { garra: fc }, dur: 1100, txt: 'fechando até a concha abraçar a peça' },
+      { ang: {}, dur: 300, txt: 'peça presa' },
+      { ang: { ...ACIMA }, dur: 1100, txt: 'levantando' },
+      { ang: { ...ALTO }, dur: 900, txt: 'levantando' },
+      { ang: { giro: gD }, dur: 1600, txt: `levando até ${naB ? 'A' : 'B'}` },
+      { ang: { ...ACIMA }, dur: 1000, txt: 'posicionando' },
+      { ang: { ...POSE_PEGA }, dur: 1300, txt: 'descendo' },
+      { ang: { garra: 1 }, dur: 800, txt: 'abrindo para soltar' },
+      { ang: { ...ACIMA }, dur: 900, txt: 'subindo' },
+      { ang: { ...ALTO, garra: 0.35 }, dur: 900, txt: 'pronto' },
+    ],
+  };
+  marcar('bt-levar', true);
+}
+function pararSeq() { seq = null; marcar('bt-levar', false); }
+function passoSeq(agora) {
+  if (!seq) return;
+  const e = seq.etapas[seq.i];
+  const t = Math.min(1, (agora - seq.t0) / e.dur), s = t * t * (3 - 2 * t);
+  for (const [k, v] of Object.entries(e.ang)) est[k] = seq.de[k] + (v - seq.de[k]) * s;
+  if (t >= 1) {
+    seq.i++; seq.t0 = agora; seq.de = { ...est };
+    if (seq.i >= seq.etapas.length) pararSeq();
+  }
+}
+
+// ---------- tour ----------
+let tTour = 0;
+function anguloTour(t) {
+  return {
+    giro: 15 + 30 * Math.sin(2 * Math.PI * t / 13),
+    ombro: 70 + 10 * Math.sin(2 * Math.PI * t / 9),
+    cotovelo: -95 + 15 * Math.sin(2 * Math.PI * t / 7 + 1),
+    garra: 0.5 + 0.5 * Math.sin(2 * Math.PI * t / 5),
+  };
+}
+function pararTour() { tour = false; marcar('bt-tour', false); }
+
+// ---------- painéis ----------
+function marcar(id, v) { $(id).setAttribute('aria-pressed', String(v)); }
+const ui = { hid: {}, juntas: {} };
+for (const j of JUNTAS) {
+  const h = document.createElement('div'); h.className = 'hid-linha';
+  h.innerHTML = `<span class="nome">${NOMES[j]}</span><span class="ser" title="mestra"><span class="agua"></span></span><span class="seta">→</span><span class="ser" title="escrava"><span class="agua"></span></span><span class="ml"></span>`;
+  $('hid').appendChild(h);
+  const [am, ae] = h.querySelectorAll('.agua');
+  ui.hid[j] = { linha: h, am, ae, ml: h.querySelector('.ml'), seta: h.querySelector('.seta') };
+
+  const d = document.createElement('div'); d.className = 'junta';
+  const [mn, mx] = LIMITES[j];
+  const passo = j === 'garra' ? 0.005 : 0.5;
+  d.innerHTML = `<span class="nome">${NOMES[j]}${j === 'garra' ? ' (0 = fechada · 1 = φ 55°)' : ''}</span><span class="val"></span>
+    <input type="range" min="${mn}" max="${mx}" step="${passo}" aria-label="${NOMES[j]}">
+    <span class="faixa"><span>${j === 'garra' ? '0' : fmt(mn) + '°'}</span><span>${j === 'garra' ? '1' : fmt(mx) + '°'}</span></span>`;
+  $('juntas').appendChild(d);
+  const inp = d.querySelector('input');
+  inp.addEventListener('input', () => { pararTour(); pararSeq(); est[j] = Number(inp.value); });
+  ui.juntas[j] = { linha: d, val: d.querySelector('.val'), inp };
+}
+const tbody = $('tab-ab').querySelector('tbody');
+for (const [phi, ab] of TABELA_ABERTURA) {
+  const tr = document.createElement('tr'); tr.innerHTML = `<td>${fmt(phi)}°</td><td>${fmt(ab, 1)} mm</td>`; tbody.appendChild(tr);
+}
+const linhasTab = [...tbody.children];
+
+// botões
+const SUBS = [['tudo', 'Tudo'], ['hidraulica', 'Hidráulica'], ['giro', 'Giro'], ['ombro', 'Ombro'], ['cotovelo', 'Cotovelo'], ['garra', 'Garra']];
+const VISTAS = [['heroi', 'Perspectiva'], ['lado', 'Lado'], ['frente', 'Frente'], ['topo', 'Topo'], ['garra', 'Garra de perto']];
+function botoes(cont, lista, fn) {
+  return lista.map(([id, txt]) => {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = txt; b.dataset.id = id; b.setAttribute('aria-pressed', 'false');
+    b.addEventListener('click', () => fn(id)); cont.appendChild(b); return b;
+  });
+}
+const marcarGrupo = (bs, id) => bs.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.id === id)));
+let subs = 'tudo';
+const btSubs = botoes($('bt-subs'), SUBS, id => { subs = id; marcarGrupo(btSubs, id); aplicarSubs(); });
+const btVistas = botoes($('bt-vistas'), VISTAS, id => irVista(id));
+const btObj = botoes($('bt-objetos'), [['garrafa', 'Garrafa'], ['engrenagem', 'Engrenagem']], id => trocarObjeto(id));
+const marcarObjetos = () => marcarGrupo(btObj, tipoObj);
+marcarGrupo(btSubs, 'tudo'); marcarObjetos();
+$('bt-tour').addEventListener('click', () => { if (tour) pararTour(); else { pararSeq(); if (preso) soltar(); tour = true; marcar('bt-tour', true); } });
+$('bt-levar').addEventListener('click', () => seq ? pararSeq() : iniciarLevar());
+$('bt-reiniciar').addEventListener('click', () => { pararSeq(); colocarObjeto(poseA); msgErro = ''; });
+let legendas = !matchMedia('(max-width: 600px)').matches && params.get('legendas') !== '0';
+const aplicarLegendas = () => { palcoArea.classList.toggle('sem-legendas', !legendas); marcar('bt-legendas', legendas); };
+$('bt-legendas').addEventListener('click', () => { legendas = !legendas; aplicarLegendas(); });
+let paineis = true;
+const alternarPaineis = () => { paineis = !paineis; tela.classList.toggle('sem-paineis', !paineis); marcar('bt-paineis', paineis); };
+$('bt-paineis').addEventListener('click', alternarPaineis);
+addEventListener('keydown', e => { if ((e.key === 'h' || e.key === 'H') && !(e.target instanceof HTMLInputElement)) alternarPaineis(); });
+aplicarLegendas(); marcar('bt-tour', tour);
+
+function aplicarSubs() {
+  for (const m of malhas) {
+    const u = m.userData;
+    const vis = subs === 'tudo' || u.grupo === 'objeto' ? true : subs === 'hidraulica' ? u.hid : u.grupo === subs;
+    m.material = vis ? u.mat : fantasma;
+    m.castShadow = vis;
+  }
+}
+
+// ---------- câmeras ----------
+const VIS = {
+  heroi: { pos: [0.34, 0.4, 0.86], alvo: [-0.09, 0.08, 0] },
+  lado: { pos: [-0.08, 0.13, 1.15], alvo: [-0.08, 0.11, 0] },
+  frente: { pos: [-1.15, 0.26, 0.02], alvo: [-0.09, 0.1, 0] },
+  topo: { pos: [-0.06, 1.35, 0.001], alvo: [-0.06, 0, 0] },
+};
+let transicao = null, vistaAtual = null;
+function alvoVista(id) {
+  if (id === 'garra') {
+    raiz.updateMatrixWorld(true);
+    const c = braco.no.pontoGarra.getWorldPosition(new THREE.Vector3());
+    const o = braco.no.cabeca.getWorldPosition(new THREE.Vector3());
+    const n = new THREE.Vector3(0, 0, 1).transformDirection(braco.no.cabeca.matrixWorld);
+    if (n.y < 0) n.negate();
+    const alvo = c.clone().lerp(o, 0.35);
+    return { pos: alvo.clone().addScaledVector(n, 0.26), alvo };
+  }
+  const v = VIS[id] || VIS.heroi;
+  const alvo = new THREE.Vector3(...v.alvo), pos = new THREE.Vector3(...v.pos);
+  // tela estreita (celular em pé): afasta a câmera para caber o braço inteiro
+  const fator = Math.max(1, Math.pow(1.45 / camera.aspect, 0.85));
+  return { pos: pos.sub(alvo).multiplyScalar(fator).add(alvo), alvo };
+}
+function irVista(id, imediato = false) {
+  const a = alvoVista(id); vistaAtual = id; marcarGrupo(btVistas, id);
+  if (imediato) { camera.position.copy(a.pos); controles.target.copy(a.alvo); controles.update(); return; }
+  transicao = { p0: camera.position.clone(), a0: controles.target.clone(), p1: a.pos, a1: a.alvo, t0: agoraMs(), dur: 900 };
+}
+controles.addEventListener('start', () => { transicao = null; vistaAtual = null; marcarGrupo(btVistas, null); });
+
+// ---------- rótulos ----------
+const SVGNS = 'http://www.w3.org/2000/svg';
+const rotulos = [
+  [braco.no.giro, [0, -34, 3], 'P07 · disco giratório'],
+  [braco.no.giro, [-6, 24.5, 75], 'P09 · torre (ombro a 97 mm)'],
+  [braco.no.ombro, [-58, 17, 0], 'P03 · lança · 113 mm'],
+  [braco.no.cotovelo, [-80, 22.5, 0], 'P05 · antebraço · 148 mm'],
+  [braco.no.cabeca, [-8, 0, 8], 'P10 · cabeça original'],
+  [braco.no.dedos[0], [-42, 12, 0], 'Dedo DC1 · concha R16', 'dc1'],
+  [raiz, [82, 0, 49], 'Caixa das 4 seringas de comando'],
+  [braco.seringas.escravas.ombro.grupo, [55, 0, 8], 'Seringa escrava do ombro'],
+  [obj, [0, 0, 0], obj.userData.rotulo],
+].map(([o, p, texto, cls]) => {
+  const div = document.createElement('div'); div.className = 'rotulo' + (cls ? ' ' + cls : ''); div.textContent = texto; $('rotulos').appendChild(div);
+  const linha = document.createElementNS(SVGNS, 'line'), ponto = document.createElementNS(SVGNS, 'circle'); ponto.setAttribute('r', '2.5');
+  $('linhas').append(linha, ponto);
+  return { obj: o, p: new THREE.Vector3(...p), div, linha, ponto, texto };
+});
+const vp = new THREE.Vector3();
+function atualizarRotulos() {
+  if (!legendas) return;
+  const r = palcoArea.getBoundingClientRect(), cx = r.width / 2, cy = r.height * 0.55;
+  const vis = [];
+  for (const s of rotulos) {
+    s.obj.localToWorld(vp.copy(s.p)).project(camera);
+    const fantasmaObj = subs !== 'tudo' && s.obj !== obj;
+    const ok = vp.z < 1 && Math.abs(vp.x) < 1.05 && Math.abs(vp.y) < 1.05 && !fantasmaObj && s.obj.visible;
+    s.div.style.display = s.linha.style.display = s.ponto.style.display = ok ? '' : 'none';
+    if (!ok) continue;
+    const x = (vp.x + 1) / 2 * r.width, y = (1 - vp.y) / 2 * r.height;
+    let dx = x - cx, dy = y - cy; const h = Math.hypot(dx, dy) || 1; dx /= h; dy /= h;
+    s.x = x; s.y = y; s.lx = Math.min(r.width - 80, Math.max(80, x + dx * 70)); s.ly = Math.min(r.height - 14, Math.max(14, y + dy * 46));
+    s.w = s.div.offsetWidth || 140; vis.push(s);
+  }
+  for (let k = 0; k < 6; k++) {
+    vis.sort((a, b) => a.ly - b.ly);
+    for (let i = 1; i < vis.length; i++) {
+      const a = vis[i - 1], b = vis[i];
+      if (Math.abs(a.lx - b.lx) < (a.w + b.w) / 2 + 6 && b.ly - a.ly < 22) { const c = (22 - (b.ly - a.ly)) / 2; a.ly -= c; b.ly += c; }
+    }
+  }
+  for (const s of vis) {
+    s.div.style.left = s.lx + 'px'; s.div.style.top = s.ly + 'px';
+    s.linha.setAttribute('x1', s.x); s.linha.setAttribute('y1', s.y); s.linha.setAttribute('x2', s.lx); s.linha.setAttribute('y2', s.ly);
+    s.ponto.setAttribute('cx', s.x); s.ponto.setAttribute('cy', s.y);
+  }
+}
+
+// ---------- vista de topo da garra (2D, mesma convenção da montagem) ----------
+const cTopo = $('topo-garra');
+function desenharTopo(phiGraus) {
+  const dpr = Math.min(devicePixelRatio || 1, 2), W = cTopo.clientWidth, H = cTopo.clientHeight;
+  if (!W || !H) return;
+  if (cTopo.width !== Math.round(W * dpr)) { cTopo.width = Math.round(W * dpr); cTopo.height = Math.round(H * dpr); }
+  const g = cTopo.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+  const esc = Math.min(W / 170, (H - 22) / 128), ox = W / 2, oy = 6 + 34 * esc;
+  const T = (x, y) => [ox + x * esc, oy - y * esc];
+  // cabeça original
+  g.beginPath(); [[-20, 27], [20, 27], [28, 0], [-28, 0]].forEach(([x, y], i) => { const [a, b] = T(x, y); i ? g.lineTo(a, b) : g.moveTo(a, b); }); g.closePath();
+  g.fillStyle = '#ebebeb'; g.fill(); g.setLineDash([4, 3]); g.strokeStyle = '#9a9a9a'; g.lineWidth = 1; g.stroke(); g.setLineDash([]);
+  g.fillStyle = '#8a8a8a'; g.font = '10px Inter, sans-serif'; g.textAlign = 'center'; { const [a, b] = T(0, 12); g.fillText('cabeça original', a, b); }
+  // objeto Ø40
+  { const [a, b] = T(0, -54); g.beginPath(); g.arc(a, b, 20 * esc, 0, Math.PI * 2); g.setLineDash(preso ? [] : [5, 4]); g.strokeStyle = preso ? '#f26522' : '#2e7d32'; g.lineWidth = 1.6; g.stroke(); g.setLineDash([]);
+    g.fillStyle = preso ? '#c94d12' : '#2e7d32'; g.font = '700 11px Inter, sans-serif'; g.fillText('Ø40', a, b + 4); }
+  // dedos
+  const phi = phiGraus * Math.PI / 180;
+  for (const s of [1, -1]) {
+    const a = s > 0 ? phi : -phi, c = Math.cos(a), sn = Math.sin(a);
+    const map = ([X, Y]) => { const x = s * X, y = Y; return T(s * 27.3 + x * c - y * sn, x * sn + y * c); };
+    g.beginPath();
+    dedo.externo.forEach((p, i) => { const [u, v] = map(p); i ? g.lineTo(u, v) : g.moveTo(u, v); }); g.closePath();
+    g.fillStyle = '#c99a63'; g.fill('evenodd'); g.strokeStyle = '#6b4528'; g.lineWidth = 1.2; g.stroke();
+    for (const f of dedo.furos) if (f.tipo === 'circulo') { const [u, v] = map(f.centro); g.beginPath(); g.arc(u, v, Math.max(2.5, f.raio * esc * 1.4), 0, Math.PI * 2); g.fillStyle = '#4a4a4a'; g.fill(); }
+  }
+  g.fillStyle = '#c0392b'; g.font = '700 11.5px Inter, sans-serif'; g.textAlign = 'center';
+  g.fillText(`abertura da boca: ${fmt(aberturaBoca(phiGraus), 1)} mm`, W / 2, H - 6);
+  $('topo-phi').textContent = `φ = ${fmt(phiGraus, 1)}°`;
+}
+
+// ---------- atualização dos painéis ----------
+let ultPainel = 0;
+const anterior = {};
+function atualizarPaineis(agora) {
+  const phi = braco.phi(), ab = aberturaBoca(phi);
+  $('pr-num').textContent = fmt(ab, 1);
+  $('pr-sub').textContent = `φ = ${fmt(phi, 1)}° por dedo · Ø40 entra a partir de φ ≈ 16,5°`;
+  if (agora - ultPainel < 90) return;
+  ultPainel = agora;
+  const { mestras, escravas } = braco.seringas;
+  const pct = s => (s - SER.bico) / (SER.sMax - SER.bico) * 100;
+  for (const j of JUNTAS) {
+    const h = ui.hid[j], me = mestras[j], es = escravas[j];
+    h.am.style.width = pct(me.s) + '%'; h.ae.style.width = pct(es.s) + '%';
+    h.ml.textContent = `${fmt(me.ml, 1)} ml · ${fmt(es.ml, 1)} ml`;
+    const d = es.s - (anterior[j] ?? es.s); anterior[j] = es.s;
+    h.seta.textContent = d > 0.05 ? '→' : d < -0.05 ? '←' : '·';
+    h.linha.classList.toggle('ativa', Math.abs(d) > 0.05);
+    const u = ui.juntas[j];
+    u.val.textContent = j === 'garra' ? `${fmt(est.garra, 2)} · φ ${fmt(phi, 1)}°` : `${fmt(est[j], 0)}°`;
+    if (document.activeElement !== u.inp) u.inp.value = est[j];
+  }
+  // linha da tabela mais próxima
+  let k = 0; for (let i = 0; i < TABELA_ABERTURA.length; i++) if (TABELA_ABERTURA[i][0] <= phi + 1e-6) k = i;
+  linhasTab.forEach((tr, i) => tr.classList.toggle('ativa', i === k));
+  desenharTopo(phi);
+
+  const nomeObj = tipoObj === 'garrafa' ? 'Garrafinha Ø40' : 'Engrenagem de aço Ø40 × 12 mm';
+  const st = $('status');
+  st.classList.toggle('ok', entregue && !preso); st.classList.toggle('presa', preso);
+  st.textContent = preso ? `${nomeObj} · abraçada pela concha (φ = ${fmt(phi, 1)}°, boca ${fmt(ab, 1)} mm)`
+    : entregue ? `${nomeObj} · entregue na posição B ✓`
+    : `${nomeObj} · ${queda ? 'caindo…' : distA() < 18 ? 'na posição A' : 'sobre a mesa'}`;
+  const onde = celular ? 'abaixo' : 'à direita';
+  $('dica').innerHTML = seq ? `<b>Pegar e levar:</b> ${seq.etapas[Math.min(seq.i, seq.etapas.length - 1)].txt}… destino: posição ${seq.destino}.`
+    : msgErro || (entregue ? '<b>Peça entregue na posição B!</b> Use “Reiniciar peça” ou “Pegar e levar a peça” para repetir.'
+    : tour ? '<b>Tour automático</b> ligado. Mexa em qualquer controle para assumir o braço.'
+    : `<b>Use os controles</b> ${onde}: gire a base, mova ombro e cotovelo, abra a garra, desça sobre a peça e feche até a concha abraçar. Desafio: leve a peça de A até B.`);
+}
+
+// ---------- laço ----------
+function ajustarTamanho() {
+  const r = palcoArea.getBoundingClientRect(), w = Math.max(1, r.width), h = Math.max(1, r.height);
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2)); renderer.setSize(w, h, false);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+new ResizeObserver(ajustarTamanho).observe(palcoArea);
+ajustarTamanho();
+
+// parâmetros de depuração / prints: ?pose=giro,ombro,cotovelo,garra  ?demo=segurando  ?vista=garra
+if (params.has('pose')) { const [g, o, c, a] = params.get('pose').split(',').map(Number); Object.assign(est, { giro: g, ombro: o, cotovelo: c, garra: a }); }
+if (params.get('demo') === 'segurando') {
+  braco.definir({ giro: GIRO_A, ...POSE_PEGA, garra: fc });
+  colocarObjeto(poseA);
+  preso = true; braco.no.cabeca.attach(obj);
+  Object.assign(est, { giro: 20, ombro: 64, cotovelo: -112, garra: fc });
+}
+braco.definir(est);
+phiAnterior = braco.phi();
+if (params.has('levar')) { tour = false; iniciarLevar(); }
+irVista(params.get('vista') || 'heroi', true);
+aplicarSubs();
+window.__iniciou = true;
+$('carregando').remove();
+
+// não deixa os dedos (nem a peça presa) atravessarem a mesa
+let ultimoValido = { ...est };
+const caixaObj = new THREE.Box3();
+function aplicarComLimite() {
+  braco.definir(est);
+  let ok = braco.menorZDedos() >= -0.5;
+  if (ok && preso) { caixaObj.setFromObject(obj, true); ok = caixaObj.min.y >= -0.0008; }
+  if (ok) { ultimoValido = { ...est }; return; }
+  if (params.has('debug')) console.log('bloqueado', JSON.stringify(est), braco.menorZDedos().toFixed(2));
+  Object.assign(est, ultimoValido);
+  braco.definir(est);
+}
+
+// um passo da simulação (sem desenhar)
+function passo(agora, dt) {
+  if (tour) { tTour += dt; Object.assign(est, anguloTour(tTour)); }
+  passoSeq(agora);
+  if (preso && est.garra < fc) est.garra = fc;
+  aplicarComLimite();
+  if (!tour) verificarPega(); else phiAnterior = braco.phi();
+  animarQueda(agora);
+}
+// ?simular=ms avança a simulação antes do primeiro quadro (usado para conferir a sequência e tirar prints)
+if (params.has('simular')) {
+  const total = Number(params.get('simular')) || 0;
+  relogio.fixo = performance.now();
+  for (let t = 0; t < total; t += 16) { relogio.extra += 16; passo(agoraMs(), 0.016); }
+  relogio.extra += relogio.fixo - performance.now(); relogio.fixo = null;
+  if (params.has('debug')) console.log('estado', JSON.stringify(window.__estado = { est, preso, entregue, dA: distA(), dB: distB(), pai: obj.parent.name }));
+}
+
+let tAnt = agoraMs();
+renderer.setAnimationLoop(() => {
+  const agora = agoraMs(), dt = Math.min(0.1, (agora - tAnt) / 1000); tAnt = agora;
+  passo(agora, dt);
+  if (transicao) {
+    const t = Math.min(1, (agora - transicao.t0) / transicao.dur), a = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    camera.position.lerpVectors(transicao.p0, transicao.p1, a); controles.target.lerpVectors(transicao.a0, transicao.a1, a);
+    if (t >= 1) transicao = null;
+  } else if (vistaAtual === 'garra') {
+    const a = alvoVista('garra'); controles.target.lerp(a.alvo, 0.15); camera.position.lerp(a.pos, 0.15);
+  }
+  controles.update();
+  renderer.render(cena, camera);
+  atualizarRotulos();
+  atualizarPaineis(agora);
+  window.__pronto = true;
+});
+
+window.__sim = { braco, est, estado: () => ({ est: { ...est }, preso, entregue, pos: posObj().toArray(), pai: obj.parent && obj.parent.name, dA: distA(), dB: distB() }), levar: iniciarLevar, poseA, poseB };
+</script>
+</body>
+</html>
